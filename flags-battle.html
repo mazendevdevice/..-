@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ultimate Country Flags Battle</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: radial-gradient(circle at 50% 30%, #3b6ea5, #16283f 80%);
+    color:#fff; overflow:hidden; height:100vh;
+  }
+  header {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 18px; background:rgba(0,0,0,.35); z-index:10; position:relative;
+  }
+  header h1 { font-size:1.15rem; letter-spacing:1px; }
+  #roundInfo { font-weight:bold; color:#ffd54f; }
+  #layout { display:flex; height:calc(100vh - 52px); }
+  #gameArea { position:relative; flex:1; }
+  canvas { display:block; width:100%; height:100%; }
+  #sidebar {
+    width:240px; background:rgba(0,0,0,.4); padding:12px;
+    overflow-y:auto; border-left:2px solid rgba(255,255,255,.15);
+  }
+  #sidebar h2 { font-size:1rem; margin-bottom:10px; color:#ffd54f; text-align:center; }
+  .lbRow {
+    display:flex; align-items:center; gap:8px; padding:5px 6px;
+    border-bottom:1px solid rgba(255,255,255,.08); font-size:.85rem;
+  }
+  .lbRow img { width:26px; height:17px; border-radius:2px; object-fit:cover; }
+  .lbRow .wins { margin-left:auto; color:#ffd54f; font-weight:bold; }
+  #overlay {
+    position:absolute; inset:0; display:none; flex-direction:column;
+    align-items:center; justify-content:center; gap:22px;
+    background:rgba(0,0,0,.55); z-index:5;
+  }
+  #overlay.show { display:flex; }
+  #winnerText {
+    font-size:2.6rem; font-weight:900; text-align:center;
+    text-shadow:0 0 25px rgba(255,213,79,.8); animation:pop .5s ease;
+  }
+  #winnerFlag { width:220px; height:auto; border-radius:8px; box-shadow:0 0 40px rgba(255,255,255,.5); }
+  #winCount { font-size:1.3rem; color:#ffd54f; font-weight:bold; }
+  #startBtn {
+    padding:14px 46px; font-size:1.25rem; font-weight:bold;
+    background:linear-gradient(135deg,#ffd54f,#ff8f00); color:#222;
+    border:none; border-radius:40px; cursor:pointer;
+    box-shadow:0 6px 20px rgba(255,160,0,.5); transition:.2s;
+  }
+  #startBtn:hover { transform:scale(1.07); }
+  #liveCount {
+    position:absolute; top:12px; left:50%; transform:translateX(-50%);
+    font-size:1.1rem; font-weight:bold; background:rgba(0,0,0,.5);
+    padding:6px 18px; border-radius:20px; z-index:4;
+  }
+  @keyframes pop { from{transform:scale(.3);opacity:0} to{transform:scale(1);opacity:1} }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌍 Ultimate Country Flags Battle</h1>
+  <div id="roundInfo">Round 1</div>
+</header>
+<div id="layout">
+  <div id="gameArea">
+    <div id="liveCount"></div>
+    <canvas id="cv"></canvas>
+    <div id="overlay">
+      <img id="winnerFlag" alt="">
+      <div id="winnerText"></div>
+      <div id="winCount"></div>
+      <button id="startBtn">▶ Start Again</button>
+    </div>
+  </div>
+  <div id="sidebar">
+    <h2>🏆 Top Winners</h2>
+    <div id="leaderboard"></div>
+  </div>
+</div>
+<script>
+// All sovereign countries EXCEPT Israel
+const COUNTRIES = [
+["Afghanistan","af"],["Albania","al"],["Algeria","dz"],["Andorra","ad"],["Angola","ao"],
+["Antigua and Barbuda","ag"],["Argentina","ar"],["Armenia","am"],["Australia","au"],["Austria","at"],
+["Azerbaijan","az"],["Bahamas","bs"],["Bahrain","bh"],["Bangladesh","bd"],["Barbados","bb"],
+["Belarus","by"],["Belgium","be"],["Belize","bz"],["Benin","bj"],["Bhutan","bt"],
+["Bolivia","bo"],["Bosnia and Herzegovina","ba"],["Botswana","bw"],["Brazil","br"],["Brunei","bn"],
+["Bulgaria","bg"],["Burkina Faso","bf"],["Burundi","bi"],["Cabo Verde","cv"],["Cambodia","kh"],
+["Cameroon","cm"],["Canada","ca"],["Central African Republic","cf"],["Chad","td"],["Chile","cl"],
+["China","cn"],["Colombia","co"],["Comoros","km"],["Congo","cg"],["DR Congo","cd"],
+["Costa Rica","cr"],["Croatia","hr"],["Cuba","cu"],["Cyprus","cy"],["Czechia","cz"],
+["Denmark","dk"],["Djibouti","dj"],["Dominica","dm"],["Dominican Republic","do"],["Ecuador","ec"],
+["Egypt","eg"],["El Salvador","sv"],["Equatorial Guinea","gq"],["Eritrea","er"],["Estonia","ee"],
+["Eswatini","sz"],["Ethiopia","et"],["Fiji","fj"],["Finland","fi"],["France","fr"],
+["Gabon","ga"],["Gambia","gm"],["Georgia","ge"],["Germany","de"],["Ghana","gh"],
+["Greece","gr"],["Grenada","gd"],["Guatemala","gt"],["Guinea","gn"],["Guinea-Bissau","gw"],
+["Guyana","gy"],["Haiti","ht"],["Honduras","hn"],["Hungary","hu"],["Iceland","is"],
+["India","in"],["Indonesia","id"],["Iran","ir"],["Iraq","iq"],["Ireland","ie"],
+["Italy","it"],["Ivory Coast","ci"],["Jamaica","jm"],["Japan","jp"],["Jordan","jo"],
+["Kazakhstan","kz"],["Kenya","ke"],["Kiribati","ki"],["Kuwait","kw"],["Kyrgyzstan","kg"],
+["Laos","la"],["Latvia","lv"],["Lebanon","lb"],["Lesotho","ls"],["Liberia","lr"],
+["Libya","ly"],["Liechtenstein","li"],["Lithuania","lt"],["Luxembourg","lu"],["Madagascar","mg"],
+["Malawi","mw"],["Malaysia","my"],["Maldives","mv"],["Mali","ml"],["Malta","mt"],
+["Marshall Islands","mh"],["Mauritania","mr"],["Mauritius","mu"],["Mexico","mx"],["Micronesia","fm"],
+["Moldova","md"],["Monaco","mc"],["Mongolia","mn"],["Montenegro","me"],["Morocco","ma"],
+["Mozambique","mz"],["Myanmar","mm"],["Namibia","na"],["Nauru","nr"],["Nepal","np"],
+["Netherlands","nl"],["New Zealand","nz"],["Nicaragua","ni"],["Niger","ne"],["Nigeria","ng"],
+["North Korea","kp"],["North Macedonia","mk"],["Norway","no"],["Oman","om"],["Pakistan","pk"],
+["Palau","pw"],["Palestine","ps"],["Panama","pa"],["Papua New Guinea","pg"],["Paraguay","py"],
+["Peru","pe"],["Philippines","ph"],["Poland","pl"],["Portugal","pt"],["Qatar","qa"],
+["Romania","ro"],["Russia","ru"],["Rwanda","rw"],["Saint Kitts and Nevis","kn"],["Saint Lucia","lc"],
+["Saint Vincent and the Grenadines","vc"],["Samoa","ws"],["San Marino","sm"],["Sao Tome and Principe","st"],
+["Saudi Arabia","sa"],["Senegal","sn"],["Serbia","rs"],["Seychelles","sc"],["Sierra Leone","sl"],
+["Singapore","sg"],["Slovakia","sk"],["Slovenia","si"],["Solomon Islands","sb"],["Somalia","so"],
+["South Africa","za"],["South Korea","kr"],["South Sudan","ss"],["Spain","es"],["Sri Lanka","lk"],
+["Sudan","sd"],["Suriname","sr"],["Sweden","se"],["Switzerland","ch"],["Syria","sy"],
+["Taiwan","tw"],["Tajikistan","tj"],["Tanzania","tz"],["Thailand","th"],["Timor-Leste","tl"],
+["Togo","tg"],["Tonga","to"],["Trinidad and Tobago","tt"],["Tunisia","tn"],["Turkey","tr"],
+["Turkmenistan","tm"],["Tuvalu","tv"],["Uganda","ug"],["Ukraine","ua"],["UAE","ae"],
+["United Kingdom","gb"],["United States","us"],["Uruguay","uy"],["Uzbekistan","uz"],["Vanuatu","vu"],
+["Vatican City","va"],["Venezuela","ve"],["Vietnam","vn"],["Yemen","ye"],["Zambia","zm"],["Zimbabwe","zw"]
+];
+
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const overlay = document.getElementById('overlay');
+const liveCount = document.getElementById('liveCount');
+let sprites = [], running = false, round = 1, battleTimer = 0;
+const wins = {};
+
+function resize(){
+  const r = cv.parentElement.getBoundingClientRect();
+  cv.width = r.width; cv.height = r.height;
+}
+window.addEventListener('resize', resize);
+
+function flagImg(code){ const i=new Image(); i.src='https://flagcdn.com/w160/'+code+'.png'; return i; }
+
+function startRound(){
+  resize();
+  overlay.classList.remove('show');
+  sprites = COUNTRIES.map(([name,code],i)=>{
+    const ang = (i/COUNTRIES.length)*Math.PI*2;
+    const R = Math.min(cv.width,cv.height)*0.36;
+    return {
+      name, code, img: flagImg(code),
+      x: cv.width/2 + Math.cos(ang)*R + (Math.random()-0.5)*40,
+      y: cv.height/2 + Math.sin(ang)*R + (Math.random()-0.5)*40,
+      vx:(Math.random()-0.5)*3, vy:(Math.random()-0.5)*3,
+      w:46, h:31, alive:true, shake:0, dying:0
+    };
+  });
+  running = true;
+  battleTimer = 0;
+}
+
+function drawArena(){
+  const cx=cv.width/2, cy=cv.height/2, R=Math.min(cv.width,cv.height)*0.43;
+  ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2);
+  ctx.lineWidth=10; ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy,R-16,0,Math.PI*2);
+  ctx.lineWidth=14; ctx.strokeStyle='rgba(0,0,0,.75)';
+  ctx.setLineDash([R*4.2, R*1.5]); ctx.stroke(); ctx.setLineDash([]);
+}
+
+function step(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  drawArena();
+  if(!running){ requestAnimationFrame(step); return; }
+
+  const alive = sprites.filter(s=>s.alive);
+  liveCount.textContent = '⚔️ '+alive.length+' countries remaining';
+
+  // move & bounce
+  for(const s of alive){
+    if(s.dying>0){ s.dying++; if(s.dying>22){ s.alive=false; } continue; }
+    s.x+=s.vx; s.y+=s.vy;
+    const cx=cv.width/2, cy=cv.height/2;
+    const d=Math.hypot(s.x-cx,s.y-cy), R=Math.min(cv.width,cv.height)*0.43-12;
+    if(d>R){ // bounce back toward center
+      const nx=(s.x-cx)/d, ny=(s.y-cy)/d;
+      const dot=s.vx*nx+s.vy*ny;
+      s.vx-=2*dot*nx; s.vy-=2*dot*ny;
+    }
+    s.shake*=0.9;
+  }
+
+  // battles: periodically find two close flags, loser dies
+  battleTimer++;
+  const interval = Math.max(18, 60 - (COUNTRIES.length - alive.length)*0.4);
+  if(battleTimer>interval && alive.filter(s=>s.dying===0).length>1){
+    battleTimer=0;
+    let a=null,b=null,best=1e9;
+    const free=alive.filter(s=>s.dying===0);
+    for(let i=0;i<free.length;i++)for(let j=i+1;j<free.length;j++){
+      const d=Math.hypot(free[i].x-free[j].x, free[i].y-free[j].y);
+      if(d<best){best=d;a=free[i];b=free[j];}
+    }
+    if(a&&b&&best<120){
+      a.shake=b.shake=14;
+      if(Math.random()<0.5) b.dying=1; else a.dying=1;
+    }
+  }
+
+  // draw
+  for(const s of sprites){
+    if(!s.alive) continue;
+    const alpha = s.dying>0 ? 1 - s.dying/22 : 1;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(s.x + (Math.random()-.5)*s.shake, s.y + (Math.random()-.5)*s.shake);
+    if(s.img.complete && s.img.naturalWidth) ctx.drawImage(s.img,-s.w/2,-s.h/2,s.w,s.h);
+    ctx.restore();
+  }
+
+  const survivors = sprites.filter(s=>s.alive && s.dying===0);
+  if(survivors.length===1 && !sprites.some(s=>s.dying>0)){
+    running=false;
+    const w=survivors[0];
+    wins[w.name]=(wins[w.name]||0)+1;
+    document.getElementById('winnerFlag').src='https://flagcdn.com/w320/'+w.code+'.png';
+    document.getElementById('winnerText').textContent='🏆 '+w.name+' Wins!';
+    document.getElementById('winCount').textContent='Wins: '+wins[w.name]+' time'+(wins[w.name]>1?'s':'');
+    overlay.classList.add('show');
+    renderLeaderboard();
+  }
+  requestAnimationFrame(step);
+}
+
+function renderLeaderboard(){
+  const lb=document.getElementById('leaderboard');
+  const arr=Object.entries(wins).sort((a,b)=>b[1]-a[1]);
+  if(!arr.length){ lb.innerHTML='<div style="opacity:.6;text-align:center">No winners yet</div>'; return; }
+  lb.innerHTML=arr.map(([name,c],i)=>{
+    const code=COUNTRIES.find(c2=>c2[0]===name)[1];
+    return `<div class="lbRow"><span>${i+1}.</span>
+      <img src="https://flagcdn.com/w80/${code}.png" onerror="this.style.display='none'">
+      <span>${name}</span><span class="wins">${c}🏆</span></div>`;
+  }).join('');
+}
+
+document.getElementById('startBtn').addEventListener('click',()=>{ round++; document.getElementById('roundInfo').textContent='Round '+round; startRound(); });
+renderLeaderboard();
+resize();
+startRound();
+requestAnimationFrame(step);
+</script>
+</body>
+</html>
